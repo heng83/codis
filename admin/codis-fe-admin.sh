@@ -18,6 +18,7 @@ CODIS_FE_DAEMON_FILE=$CODIS_LOG_DIR/codis-fe.out
 COORDINATOR_NAME="filesystem"
 COORDINATOR_ADDR="/tmp/codis"
 CODIS_FE_ADDR="0.0.0.0:9090"
+CODIS_AUTH_FILE=$CODIS_CONF_DIR/fe.auth.json
 
 echo $CODIS_FE_CONF_FILE
 
@@ -36,11 +37,11 @@ start)
       fi
     fi
     nohup "$CODIS_FE_BIN" "--assets-dir=${CODIS_FE_ASSETS_DIR}" "--$COORDINATOR_NAME=$COORDINATOR_ADDR" \
-    "--log=$CODIS_FE_LOG_FILE" "--pidfile=$CODIS_FE_PID_FILE" "--log-level=INFO" "--listen=$CODIS_FE_ADDR" > "$CODIS_FE_DAEMON_FILE" 2>&1 < /dev/null &
+    "--log=$CODIS_FE_LOG_FILE" "--pidfile=$CODIS_FE_PID_FILE" "--log-level=INFO" "--listen=$CODIS_FE_ADDR" "--auth=$CODIS_AUTH_FILE" > "$CODIS_FE_DAEMON_FILE" 2>&1 < /dev/null &
     ;;
 start-foreground)
     $CODIS_FE_BIN "--assets-dir=${CODIS_FE_ASSETS_DIR}" "--$COORDINATOR_NAME=$COORDINATOR_ADDR" \
-    "--log-level=DEBUG" "--listen=$CODIS_FE_ADDR"
+    "--log-level=DEBUG" "--listen=$CODIS_FE_ADDR" "--auth=$CODIS_AUTH_FILE"
     ;;
 stop)
     echo "stopping codis-fe ... "

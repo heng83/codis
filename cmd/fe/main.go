@@ -56,7 +56,7 @@ func init() {
 func main() {
 	const usage = `
 Usage:
-	codis-fe [--ncpu=N] [--log=FILE] [--log-level=LEVEL] [--assets-dir=PATH] [--pidfile=FILE] (--dashboard-list=FILE|--zookeeper=ADDR [--zookeeper-auth=USR:PWD]|--etcd=ADDR [--etcd-auth=USR:PWD]|--filesystem=ROOT) --listen=ADDR
+	codis-fe [--ncpu=N] [--log=FILE] [--log-level=LEVEL] [--assets-dir=PATH] [--pidfile=FILE] (--dashboard-list=FILE|--zookeeper=ADDR|--etcd=ADDR|--filesystem=ROOT) --listen=ADDR --auth=AUTHFILE
 	codis-fe  --version
 
 Options:
@@ -65,6 +65,7 @@ Options:
 	-l FILE, --log=FILE             set path/name of daliy rotated log file.
 	--log-level=LEVEL               set the log-level, should be INFO,WARN,DEBUG or ERROR, default is INFO.
 	--listen=ADDR                   set the listen address.
+	--auth=AUTHFILE
 `
 	d, err := docopt.Parse(usage, nil, true, "", false)
 	if err != nil {
@@ -100,6 +101,11 @@ Options:
 	}
 	log.Warnf("set ncpu = %d", runtime.GOMAXPROCS(0))
 
+	if authFile, ok := utils.Argument(d, "--auth"); ok {
+		log.Warnf("load auth = %s", authFile)
+		LoadAuthConfig(authFile)
+	}
+
 	listen := utils.ArgumentMust(d, "--listen")
 	log.Warnf("set listen = %s", listen)
 
@@ -133,23 +139,16 @@ Options:
 		var coordinator struct {
 			name string
 			addr string
-			auth string
 		}
 
 		switch {
 		case d["--zookeeper"] != nil:
 			coordinator.name = "zookeeper"
 			coordinator.addr = utils.ArgumentMust(d, "--zookeeper")
-			if d["--zookeeper-auth"] != nil {
-				coordinator.auth = utils.ArgumentMust(d, "--zookeeper-auth")
-			}
 
 		case d["--etcd"] != nil:
 			coordinator.name = "etcd"
 			coordinator.addr = utils.ArgumentMust(d, "--etcd")
-			if d["--etcd-auth"] != nil {
-				coordinator.auth = utils.ArgumentMust(d, "--etcd-auth")
-			}
 
 		case d["--filesystem"] != nil:
 			coordinator.name = "filesystem"
@@ -161,7 +160,7 @@ Options:
 
 		log.Warnf("set --%s = %s", coordinator.name, coordinator.addr)
 
-		c, err := models.NewClient(coordinator.name, coordinator.addr, coordinator.auth, time.Minute)
+		c, err := models.NewClient(coordinator.name, coordinator.addr, time.Minute)
 		if err != nil {
 			log.PanicErrorf(err, "create '%s' client to '%s' failed", coordinator.name, coordinator.addr)
 		}
@@ -173,6 +172,7 @@ Options:
 	router := NewReverseProxy(loader)
 
 	m := martini.New()
+	m.Use(CheckTrustable())
 	m.Use(martini.Recovery())
 	m.Use(render.Renderer())
 	m.Use(martini.Static(assets, martini.StaticOptions{SkipLogging: true}))
